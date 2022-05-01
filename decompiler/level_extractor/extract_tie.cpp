@@ -6,6 +6,8 @@
 
 #include "common/util/FileUtil.h"
 
+#include "third-party/gltf.h"
+
 namespace decompiler {
 
 /// <summary>
@@ -1751,10 +1753,173 @@ void emulate_kicks(std::vector<TieProtoInfo>& protos) {
 }
 
 // from here on, we are mostly converting the "info" formats to the C++ renderer format (tfrag3)
+std::string debug_dump_proto_to_gltf(const TieProtoInfo& proto) {
+
+}
 
 /*!
- * Just used to debug, save a proto as an .obj mesh file.
+ * This saves the object as a glTF mesh that is indexed
  */
+std::string debug_dump_proto_to_gltf_idx(const TieProtoInfo& proto) {
+  fx::gltf::Document generated;
+
+  // Set that we extracted and generated the file
+  generated.asset.generator = "Jak-Project Model Extractor";
+
+  // Setup the default scene, may not really be needed but its probably a good thing to include
+  generated.scene = 0;
+  generated.scenes.push_back(fx::gltf::Scene());
+  generated.scenes.back().name = "Default";
+  generated.scenes.back().nodes.push_back(0);
+
+  // Copied from OBJ format below, we can use this to generate what we need, make the data a little easier to use
+  std::vector<float> verts;
+  std::vector<float> tcs;
+  std::vector<int> faces;
+
+  
+  int vtx_count = 0;
+  for (auto& frag : proto.frags) {
+    for (auto& strip : frag.strips) {
+      // add verts...
+      ASSERT(strip.verts.size() >= 3);
+
+      int vert_idx = 0;
+
+      int vtx_idx_queue[3];
+
+      int q_idx = 0;
+      int startup = 0;
+      while (vert_idx < (int)strip.verts.size()) {
+        math::Vector<float, 3> posdata = strip.verts.at(vert_idx).pos / 65536;
+        math::Vector<float, 3> texdata = strip.verts.at(vert_idx).tex;
+
+        verts.push_back(posdata.x());
+        verts.push_back(posdata.y());
+        verts.push_back(posdata.z());
+
+        tcs.push_back(texdata.x());
+        tcs.push_back(texdata.y());
+        // tcs.push_back(texdata.z()); // This might be a reference to something we care about? we don't right now though at least
+
+        vert_idx++;
+        vtx_idx_queue[q_idx++] = vtx_count++;
+
+        // wrap the index
+        if (q_idx == 3) {
+          q_idx = 0;
+        }
+
+        // bump the startup
+        if (startup < 3) {
+          startup++;
+        }
+
+        if (startup >= 3) {
+          faces.push_back(vtx_idx_queue[0]);
+          faces.push_back(vtx_idx_queue[1]);
+          faces.push_back(vtx_idx_queue[2]);
+        }
+      }
+    }
+  }
+
+  // Setup and insert our actual data, we have been putting it off long enough
+  generated.buffers.push_back(fx::gltf::Buffer());
+  generated.buffers.back().name = proto.name;
+
+  // The below have some duplicate code, this converts their current value into the byte array so that we can easily add it to our mass buffer
+  for (auto& vert : verts) {
+    uint8_t* array;
+    array = reinterpret_cast<uint8_t*>(&vert);
+    generated.buffers.back().data.push_back(array[0]);
+    generated.buffers.back().data.push_back(array[1]);
+    generated.buffers.back().data.push_back(array[2]);
+    generated.buffers.back().data.push_back(array[3]);
+  }
+  int vertLength = generated.buffers.back().data.size();
+
+  for (auto& tx : tcs) {
+    uint8_t* array;
+    array = reinterpret_cast<uint8_t*>(&tx);
+    generated.buffers.back().data.push_back(array[0]);
+    generated.buffers.back().data.push_back(array[1]);
+    generated.buffers.back().data.push_back(array[2]);
+    generated.buffers.back().data.push_back(array[3]);
+  }
+  int texLength = generated.buffers.back().data.size();
+
+  for (auto& face : faces) {
+    uint8_t* array;
+    array = reinterpret_cast<uint8_t*>(&face);
+    generated.buffers.back().data.push_back(array[0]);
+    generated.buffers.back().data.push_back(array[1]);
+    generated.buffers.back().data.push_back(array[2]);
+    generated.buffers.back().data.push_back(array[3]);
+  }
+  int faceLength = generated.buffers.back().data.size();
+
+  generated.buffers.back().byteLength = generated.buffers.back().data.size();
+  generated.buffers.back().SetEmbeddedResource();
+
+  // We now need to setup our bufferView stuff
+  // Vertex Data
+  generated.bufferViews.push_back(fx::gltf::BufferView());
+  generated.bufferViews.back().buffer = 0;
+  generated.bufferViews.back().byteLength = vertLength;
+  generated.bufferViews.back().byteOffset = 0;
+
+  // Texture Data
+  generated.bufferViews.push_back(fx::gltf::BufferView());
+  generated.bufferViews.back().buffer = 0;
+  generated.bufferViews.back().byteLength = texLength - vertLength;
+  generated.bufferViews.back().byteOffset = vertLength;
+
+  // Face Data
+  generated.bufferViews.push_back(fx::gltf::BufferView());
+  generated.bufferViews.back().buffer = 0;
+  generated.bufferViews.back().byteLength = faceLength - texLength;
+  generated.bufferViews.back().byteOffset = texLength;
+
+  // How is this data accessed
+  // Vertex Buffer View
+  generated.accessors.push_back(fx::gltf::Accessor());
+  generated.accessors.back().bufferView = 0;
+  generated.accessors.back().componentType = fx::gltf::Accessor::ComponentType::Float;
+  generated.accessors.back().count = (verts.size() / 3);
+  generated.accessors.back().type = fx::gltf::Accessor::Type::Vec3;
+
+  // Texture Buffer View
+  generated.accessors.push_back(fx::gltf::Accessor());
+  generated.accessors.back().bufferView = 1;
+  generated.accessors.back().componentType = fx::gltf::Accessor::ComponentType::Float;
+  generated.accessors.back().count = (tcs.size() / 2);
+  generated.accessors.back().type = fx::gltf::Accessor::Type::Vec2;
+
+  // Face Buffer View
+  generated.accessors.push_back(fx::gltf::Accessor());
+  generated.accessors.back().bufferView = 2;
+  generated.accessors.back().componentType = fx::gltf::Accessor::ComponentType::UnsignedInt;
+  generated.accessors.back().count = faces.size();
+  generated.accessors.back().type = fx::gltf::Accessor::Type::Scalar;
+
+  // Setup our mesh, This just allows all the different buffers and buffer views to connect up correctly
+  generated.meshes.push_back(fx::gltf::Mesh());
+  generated.meshes.back().name = proto.name;
+  generated.meshes.back().primitives.push_back(fx::gltf::Primitive());
+  generated.meshes.back().primitives.back().mode = fx::gltf::Primitive::Mode::Triangles; // Jak uses TriangleStrips not normal Triangles
+  generated.meshes.back().primitives.back().attributes.insert({{"POSITION", 0}, {"TEXCOORD_0", 1}});  // POSITION is vertex values
+  generated.meshes.back().primitives.back().indices = 2;
+
+  // Setup our node, as we are a single object instead of the whole scene this because a bit easier overall
+  generated.nodes.push_back(fx::gltf::Node());
+  generated.nodes.back().mesh = 0;
+  generated.nodes.back().name = proto.name;
+
+  nlohmann::json json = generated;
+  return json.dump(2);
+}
+
 std::string debug_dump_proto_to_obj(const TieProtoInfo& proto) {
   std::vector<math::Vector<float, 3>> verts;
   std::vector<math::Vector<float, 2>> tcs;
@@ -1828,6 +1993,205 @@ math::Vector<float, 3> transform_tie(const std::array<math::Vector4f, 4> mat,
  * Dump the entire tie tree to an obj. Used to debug the transform_tie function. If we get this
  * right, it should fit in with .obj's produced from the tfrag debug.
  */
+std::string dump_full_to_gltf(const std::vector<TieProtoInfo>& protos) {
+  fx::gltf::Document generated;
+
+  // Set that we extracted and generated the file
+  generated.asset.generator = "Jak-Project Model Extractor";
+
+  // Setup the default scene, we do actually need this one as we are using a whole lot of nodes and such
+  generated.scene = 0;
+  generated.scenes.push_back(fx::gltf::Scene());
+  generated.scenes.back().name = "Default";
+
+  for (auto& proto : protos) {
+
+    fx::gltf::Node root = fx::gltf::Node();
+    // Each proto is a different named object and the root of that object, generally it will have several children though
+    root.name = fmt::format("root_{}", proto.name);
+
+    std::vector<int> mesh_list;
+    int frag_id = 0;
+    for (auto& frag : proto.frags) {
+
+      fx::gltf::Node fragment = fx::gltf::Node();
+      fragment.name = fmt::format("frag_{}_{}", frag_id++, proto.name);
+
+      int strip_id = 0;
+      for (auto& strip : frag.strips) {
+        fx::gltf::Node tri_strip = fx::gltf::Node();
+        tri_strip.name = fmt::format("frag_{}_strip_{}_{}", (frag_id - 1), strip_id++, proto.name);
+
+        ASSERT(strip.verts.size() >= 3);
+
+        // Parse data so that we can use it
+        std::vector<float> verts;
+        std::vector<float> tcs;
+        for (auto& temp : strip.verts) {
+          math::Vector<float, 3> posdata = temp.pos / 65536;  // Should this be 65535?
+          math::Vector<float, 3> texdata = temp.tex;
+
+          verts.push_back(posdata.x());
+          verts.push_back(posdata.y());
+          verts.push_back(posdata.z());
+
+          tcs.push_back(texdata.x());
+          tcs.push_back(texdata.y());
+          // tcs.push_back(texdata.z()); // This might be a reference to something we care about? we
+          // don't right now though at least
+        }
+
+        // Create and fill in buffer data
+        int buffer_idx = generated.buffers.size();
+        generated.buffers.push_back(fx::gltf::Buffer());
+        generated.buffers.back().name = fmt::format("buffer_frag_{}_strip_{}_{}", (frag_id - 1), (strip_id - 1), proto.name);
+
+        for (auto& vert : verts) {
+          uint8_t* array;
+          array = reinterpret_cast<uint8_t*>(&vert);
+          generated.buffers.back().data.push_back(array[0]);
+          generated.buffers.back().data.push_back(array[1]);
+          generated.buffers.back().data.push_back(array[2]);
+          generated.buffers.back().data.push_back(array[3]);
+        }
+        int vertLength = generated.buffers.back().data.size();
+
+        for (auto& text : tcs) {
+          uint8_t* array;
+          array = reinterpret_cast<uint8_t*>(&text);
+          generated.buffers.back().data.push_back(array[0]);
+          generated.buffers.back().data.push_back(array[1]);
+          generated.buffers.back().data.push_back(array[2]);
+          generated.buffers.back().data.push_back(array[3]);
+        }
+        int texLength = generated.buffers.back().data.size();
+
+        generated.buffers.back().byteLength = generated.buffers.back().data.size();
+        generated.buffers.back().SetEmbeddedResource();
+
+        // We now need to setup our bufferView stuff
+        // Vertex Data
+        int vert_buff_view = generated.bufferViews.size();
+        generated.bufferViews.push_back(fx::gltf::BufferView());
+        generated.bufferViews.back().buffer = buffer_idx;
+        generated.bufferViews.back().byteLength = vertLength;
+        generated.bufferViews.back().byteOffset = 0;
+
+        // Texture Data
+        int tex_buff_view = generated.bufferViews.size();
+        generated.bufferViews.push_back(fx::gltf::BufferView());
+        generated.bufferViews.back().buffer = buffer_idx;
+        generated.bufferViews.back().byteLength = texLength - vertLength;
+        generated.bufferViews.back().byteOffset = vertLength;
+      
+        // How is this data accessed
+        // Vertex Buffer View
+        int vert_accessor = generated.accessors.size();
+        generated.accessors.push_back(fx::gltf::Accessor());
+        generated.accessors.back().bufferView = vert_buff_view;
+        generated.accessors.back().componentType = fx::gltf::Accessor::ComponentType::Float;
+        generated.accessors.back().count = (verts.size() / 3);
+        generated.accessors.back().type = fx::gltf::Accessor::Type::Vec3;
+
+        // Texture Buffer View
+        int tex_accessor = generated.accessors.size();
+        generated.accessors.push_back(fx::gltf::Accessor());
+        generated.accessors.back().bufferView = tex_buff_view;
+        generated.accessors.back().componentType = fx::gltf::Accessor::ComponentType::Float;
+        generated.accessors.back().count = (tcs.size() / 2);
+        generated.accessors.back().type = fx::gltf::Accessor::Type::Vec2;
+
+        // Each triangle strip relates directly to one mesh
+        int mesh_idx = generated.meshes.size();
+        generated.meshes.push_back(fx::gltf::Mesh());
+        generated.meshes.back().name = fmt::format("frag_{}_mesh_{}_{}", (frag_id - 1), (strip_id - 1), proto.name);
+        generated.meshes.back().primitives.push_back(fx::gltf::Primitive());
+        generated.meshes.back().primitives.back().mode = fx::gltf::Primitive::Mode::TriangleStrip;  // Jak uses TriangleStrips not normal Triangles
+        generated.meshes.back().primitives.back().attributes.insert(
+            {{"POSITION", vert_accessor},
+             {"TEXCOORD_0", tex_accessor}});  // POSITION is vertex values
+
+        mesh_list.push_back(mesh_idx);
+        tri_strip.mesh = mesh_idx;
+
+        int strip_idx = generated.nodes.size();
+        generated.nodes.push_back(tri_strip);
+        fragment.children.push_back(strip_idx);
+      }
+
+      int frag_idx = generated.nodes.size();
+      generated.nodes.push_back(fragment);
+
+      root.children.push_back(frag_idx);
+    }
+
+    int root_idx = generated.nodes.size();
+    generated.nodes.push_back(root);
+
+    // Now that we have the mesh and node data we can add root nodes, these root notes basically tell us where the instances are
+    int inst_id = 0;
+    for (auto& inst : proto.instances) {
+
+      fx::gltf::Node instance = fx::gltf::Node();
+      instance.name = fmt::format("inst_{}_{}", inst_id++, proto.name);
+
+      int mesh_id = 0;
+      for (auto& me : mesh_list) {
+        fx::gltf::Node instance_mesh = fx::gltf::Node();
+        instance_mesh.name = fmt::format("inst_{}_mesh_{}_{}", (inst_id - 1), mesh_id++, proto.name);
+        instance_mesh.mesh = me;
+
+        instance.children.push_back(generated.nodes.size());
+        generated.nodes.push_back(instance_mesh);
+      }
+
+      // Convert the matix for the instance to glTF format
+      // math::Vector3f transform = transform_tie(inst.mat, math::Vector3f(0, 0, 0)) / 65536;
+      // math::Vector3f scale = transform_tie(inst.mat, math::Vector3f(1, 1, 1)) / 65536;
+
+      // instance.translation[0] = transform.x();
+      // instance.translation[1] = transform.y();
+      // instance.translation[2] = transform.z();
+
+      // instance.scale[0] = scale.x();
+      // instance.scale[1] = scale.y();
+      // instance.scale[2] = scale.z();
+
+      int loop = 0;
+      int idx = 0;
+      for (auto& rawmat : inst.mat) {
+        float div = 1;
+        if (loop == 3) {
+          // The transform is dumb
+          div = 65536;
+        }
+
+        instance.matrix[idx++] = rawmat.x() / div;
+        instance.matrix[idx++] = rawmat.y() / div;
+        instance.matrix[idx++] = rawmat.z() / div;
+        if (loop == 3) {
+          instance.matrix[idx++] = 1.0f;
+        } else {
+          instance.matrix[idx++] = rawmat.w() / div;
+        }
+        
+
+        //std::string data = fmt::format("Mat {:.5f} {:.5f} [:.5f} {:.5f}", rawmat.x(), rawmat.y(), rawmat.z(), rawmat.w());
+        std::printf("Mat stuff here %f %f %f %f\n", rawmat.x() / div, rawmat.y() / div, rawmat.z() / div, rawmat.w() / div);
+
+        loop++;
+      }
+
+      int inst_id = generated.nodes.size();
+      generated.nodes.push_back(instance);
+      generated.scenes.back().nodes.push_back(inst_id);
+    }
+  }
+
+  nlohmann::json json = generated;
+  return json.dump(2);
+}
+
 std::string dump_full_to_obj(const std::vector<TieProtoInfo>& protos) {
   std::vector<math::Vector<float, 3>> verts;
   std::vector<math::Vector<float, 2>> tcs;
@@ -2342,10 +2706,21 @@ void extract_tie(const level_tools::DrawableTreeInstanceTie* tree,
       for (auto& proto : info) {
         auto data = debug_dump_proto_to_obj(proto);
         file_util::write_text_file(fmt::format("{}/{}.obj", dir, proto.name), data);
+        if (true) {
+          auto data_glTF = debug_dump_proto_to_gltf_idx(proto);
+          file_util::write_text_file(fmt::format("{}/{}.gltf", dir, proto.name), data_glTF);
+        } else {
+          auto data_glTF = debug_dump_proto_to_gltf(proto);
+          file_util::write_text_file(fmt::format("{}/{}.gltf", dir, proto.name), data_glTF);
+        }
+        
       }
 
       auto full = dump_full_to_obj(info);
       file_util::write_text_file(fmt::format("{}/ALL.obj", dir), full);
+
+      auto full_gltf = dump_full_to_gltf(info);
+      file_util::write_text_file(fmt::format("{}/ALL.gltf", dir), full_gltf);
     }
 
     // create time of day data.
