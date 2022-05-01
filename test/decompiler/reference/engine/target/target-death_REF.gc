@@ -526,8 +526,7 @@
         )
 
 ;; definition for symbol *smack-up-mods*, type surface
-(define
-  *smack-up-mods*
+(define *smack-up-mods*
   (new 'static 'surface
     :name 'jump
     :turnv 131072.0
@@ -1095,12 +1094,11 @@
     (none)
     )
   :post
-  (the-as (function none :behavior target) target-post)
+  target-post
   )
 
 ;; definition for symbol *death-spool-array*, type (array spool-anim)
-(define
-  *death-spool-array*
+(define *death-spool-array*
   (the-as (array spool-anim)
     (new
       'static

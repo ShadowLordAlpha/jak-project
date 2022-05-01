@@ -273,14 +273,12 @@
   )
 
 ;; definition for symbol *part-id-table*, type (array sparticle-launcher)
-(define
-  *part-id-table*
+(define *part-id-table*
   (the-as (array sparticle-launcher) (new 'global 'boxed-array sparticle-launcher 3584))
   )
 
 ;; definition for symbol *part-group-id-table*, type (array sparticle-launch-group)
-(define
-  *part-group-id-table*
+(define *part-group-id-table*
   (the-as (array sparticle-launch-group) (new 'global 'boxed-array sparticle-launch-group 1024))
   )
 
@@ -1027,13 +1025,7 @@
         (let ((gp-1 (vector+! (new 'stack-no-clear 'vector) arg0 (the-as vector (-> v1-0 bounds)))))
           (set! (-> gp-1 w) f0-0)
           (if (and *display-actor-vis* (or (not *display-actor-anim*) (name= *display-actor-anim* (-> obj proc name))))
-              (add-debug-sphere
-                *display-actor-vis*
-                (bucket-id debug-draw0)
-                gp-1
-                (-> gp-1 w)
-                (new 'static 'rgba :g #xff :a #x80)
-                )
+              (add-debug-sphere *display-actor-vis* (bucket-id debug) gp-1 (-> gp-1 w) (new 'static 'rgba :g #xff :a #x80))
               )
           (sphere-in-view-frustum? (the-as sphere gp-1))
           )

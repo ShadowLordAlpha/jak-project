@@ -5241,9 +5241,8 @@
   ],
 
   "(method 12 touching-list)": [
-    [4, "gp", "touching-shapes-entry"],
-    [6, "gp", "touching-shapes-entry"],
-    [67, "gp", "touching-shapes-entry"]
+    [[4, 67], "gp", "touching-shapes-entry"],
+    [67, "gp", "(inline-array touching-shapes-entry)"]
   ],
 
   "(method 35 collide-shape)": [
@@ -5473,9 +5472,7 @@
     [168, "v1", "art-joint-anim"]
   ],
 
-  "(code target-attack-uppercut)": [
-    [39, "v1", "float"]
-  ],
+  "(code target-attack-uppercut)": [[39, "v1", "float"]],
 
   "mod-var-jump": [
     [77, "f0", "float"],
@@ -7781,5 +7778,10 @@
   ],
 
   "(method 12 effect-control)": [["_stack_", 112, "res-tag"]],
+
+  "generic-tie-execute": [
+    [118, "v1", "terrain-context"],
+    [124, "v1", "terrain-context"]
+  ],
   "placeholder-do-not-add-below": []
 }

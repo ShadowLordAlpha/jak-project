@@ -429,8 +429,8 @@ void pc_game_load_open_file(FILE* fd) {
 
             mc_print(fmt::format("loading bank {}", bank));
             u32 current_save_count = headers[bank]->save_count;
-            memcpy(op.data_ptr.c(), op.data_ptr.c() + bank * BANK_TOTAL_SIZE + sizeof(McHeader),
-                   BANK_SIZE);
+            memmove(op.data_ptr.c(), op.data_ptr.c() + bank * BANK_TOTAL_SIZE + sizeof(McHeader),
+                    BANK_SIZE);
             mc_last_file = op.param2;
             mc_files[op.param2].most_recent_save_count = current_save_count;
             mc_files[op.param2].last_saved_bank = bank;
@@ -854,7 +854,7 @@ u32 MC_check_result() {
  * The slot includes the four save slots (8 banks), and a few other files.
  */
 void MC_get_status(s32 slot, Ptr<mc_slot_info> info) {
-  ASSERT(slot == 0);  // no memory cards so only allow "slot 0"!!!
+  // slot is ignored, so you'll get the same thing regardless of what slot you pick
 
   info->handle = 0;
   info->known = 0;

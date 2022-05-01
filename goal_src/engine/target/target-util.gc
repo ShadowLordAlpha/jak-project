@@ -7,9 +7,6 @@
 
 (define-extern target-collide-set! (function symbol float int :behavior target))
 
-;; note: this file has a modification to let us run with an incompletely constructed target.
-;; if you update the decompilation, you will need to restore this hack.
-
 ;; DECOMP BEGINS
 
 (defskelgroup *jchar-sg* eichar
@@ -23,8 +20,7 @@
   :sort 1
   )
 
-(define
-  *target-shadow-control*
+(define *target-shadow-control*
   (new 'static 'shadow-control :settings (new 'static 'shadow-settings
                                            :center
                                            (new 'static 'vector :w (the-as float #x2))
@@ -712,7 +708,6 @@
   (the-as collide-shape (-> obj control))
   )
 
-
 (defun average-turn-angle ((arg0 target))
   (let ((f30-0 0.0))
     (dotimes (s5-0 8)
@@ -1171,7 +1166,7 @@
         ((logtest? (-> gp-0 state-flags) 1024)
          (add-debug-sphere
            *display-camera-marks*
-           (bucket-id debug-draw1)
+           (bucket-id debug-no-zbuf)
            (-> gp-0 alt-cam-pos)
            819.2
            (new 'static 'rgba :r #xff :a #x80)
@@ -1181,7 +1176,7 @@
         ((logtest? #x20000 (-> gp-0 state-flags))
          (add-debug-sphere
            *display-camera-marks*
-           (bucket-id debug-draw1)
+           (bucket-id debug-no-zbuf)
            (-> gp-0 alt-cam-pos)
            819.2
            (new 'static 'rgba :r #xff :a #x80)
@@ -1194,7 +1189,7 @@
            (set! (-> (the-as vector s5-0) y) (fmax (-> (the-as vector s5-0) y) (-> gp-0 alt-cam-pos y)))
            (add-debug-sphere
              *display-camera-marks*
-             (bucket-id debug-draw1)
+             (bucket-id debug-no-zbuf)
              (the-as vector s5-0)
              819.2
              (new 'static 'rgba :r #xff :a #x80)
@@ -1205,7 +1200,7 @@
         (else
           (add-debug-sphere
             *display-camera-marks*
-            (bucket-id debug-draw1)
+            (bucket-id debug-no-zbuf)
             (the-as vector (&-> (-> gp-0 control) unknown-qword00))
             819.2
             (new 'static 'rgba :r #xff :a #x80)

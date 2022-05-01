@@ -22,8 +22,27 @@
 
  |#
 
-;; is this necessary?
-(#when PC_PORT
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; global variables
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+;; collision renderer things. debug only.
+(define *collision-renderer* #f)
+(define *collision-wireframe* #f)
+(define *collision-mode* (pc-collision-mode mode))
+
+(defenum pc-pat-skip-hack
+  :bitfield #t
+  (noentity 0)
+  (nocamera 1)
+  (noedge   2)
+  (nolineofsight 12)
+  (unknowncamera 13)
+  (unknown 15)
+  )
+
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -79,7 +98,7 @@
   (none))
 
 (defmethod update-from-os pc-settings ((obj pc-settings))
-  "Update settings from the PC kernel to GOAL."
+  "Update settings from the C kernel to GOAL."
 
   (set! (-> obj os) (pc-get-os))
   (pc-get-window-size (&-> obj win-width) (&-> obj win-height))
@@ -123,7 +142,7 @@
   (none))
 
 (defmethod update-to-os pc-settings ((obj pc-settings))
-  "Update settings from GOAL to the PC kernel."
+  "Update settings from GOAL to the C kernel."
 
   (cond
     ((-> obj letterbox?)
@@ -142,7 +161,11 @@
     (pc-renderer-tree-set-lod (pc-renderer-tree-type tie3) (-> obj lod-force-tie))
     )
 
-  ;; TODO - save changes
+  (when *debug-segment*
+    (pc-set-collision *collision-renderer*)
+    (pc-set-collision-wireframe *collision-wireframe*)
+    (pc-set-collision-mode *collision-mode*)
+    )
 
   (none))
 
@@ -171,7 +194,7 @@
     (set! (-> info status) "Playing Jak and Daxter: The Precursor Legacy™")
     (set! (-> info level) (symbol->string (-> (level-get-target-inside *level*) name))) ;; grab the name of level we're in
     (set! (-> info cutscene?) (-> obj movie?))
-    (pc-discord-rpc-update info)
+    (with-profiler "discord-update" (pc-discord-rpc-update info))
     )
 
   (when (not (-> obj use-vis?))
@@ -198,7 +221,7 @@
       )
     )
   (cond
-    ((actor-force-visible? obj)
+    ((-> obj force-actors?)
       ;; kinda overkill.
       (set! (-> *ACTOR-bank* birth-dist) (meters 10000))
       (set! (-> *ACTOR-bank* pause-dist) (meters 10000))
@@ -796,15 +819,13 @@
 
 (defun-debug draw-build-revision ()
   (with-dma-buffer-add-bucket ((buf (-> (current-frame) debug-buf))
-                                     (bucket-id debug-draw1))
+                                     (bucket-id debug-no-zbuf))
           (draw-string-xy *pc-settings-built-sha*
                           buf
                           0
                           (* 10 (-> *video-parms* relative-y-scale))
                           (font-color flat-yellow)
-                          (font-flags kerning))))
-
-) ;; when PC_PORT
+                          (font-flags shadow kerning))))
 
 
 

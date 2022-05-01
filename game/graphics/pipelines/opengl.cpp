@@ -28,6 +28,7 @@
 #include "common/util/FileUtil.h"
 #include "common/util/compress.h"
 #include "common/util/FrameLimiter.h"
+#include "common/global_profiler/GlobalProfiler.h"
 
 namespace {
 
@@ -222,6 +223,7 @@ void render_game_frame(int width, int height, int lbox_width, int lbox_height) {
   // wait for a copied chain.
   bool got_chain = false;
   {
+    auto p = scoped_prof("wait-for-dma");
     std::unique_lock<std::mutex> lock(g_gfx_data->dma_mutex);
     // note: there's a timeout here. If the engine is messed up and not sending us frames,
     // we still want to run the glfw loop.
@@ -248,6 +250,7 @@ void render_game_frame(int width, int height, int lbox_width, int lbox_height) {
       auto& chain = g_gfx_data->dma_copier.get_last_result();
       g_gfx_data->ogl_renderer.render(DmaFollower(chain.data.data(), chain.start_offset), options);
     } else {
+      auto p = scoped_prof("ogl-render");
       g_gfx_data->ogl_renderer.render(DmaFollower(g_gfx_data->dma_copier.get_last_input_data(),
                                                   g_gfx_data->dma_copier.get_last_input_offset()),
                                       options);
@@ -322,7 +325,7 @@ static void gl_set_fullscreen(GfxDisplay* display, int mode, int /*screen*/) {
   }
 }
 
-static void gl_screen_size(GfxDisplay* display,
+static void gl_screen_size(GfxDisplay* /*display*/,
                            int vmode_idx,
                            int /*screen*/,
                            s32* w_out,
@@ -351,18 +354,36 @@ static void gl_screen_size(GfxDisplay* display,
   }
 }
 
+void update_global_profiler() {
+  if (g_gfx_data->debug_gui.dump_events) {
+    prof().set_enable(false);
+    g_gfx_data->debug_gui.dump_events = false;
+    prof().dump_to_json((file_util::get_jak_project_dir() / "prof.json").string());
+  }
+  prof().set_enable(g_gfx_data->debug_gui.record_events);
+}
+
+/*!
+ * Main function called to render graphics frames. This is called in a loop.
+ */
 static void gl_render_display(GfxDisplay* display) {
   GLFWwindow* window = display->window_glfw;
 
   // poll events
-  glfwPollEvents();
-  glfwMakeContextCurrent(window);
-  Pad::update_gamepads();
+  {
+    auto p = scoped_prof("poll-gamepads");
+    glfwPollEvents();
+    glfwMakeContextCurrent(window);
+    Pad::update_gamepads();
+  }
 
   // imgui start of frame
-  ImGui_ImplOpenGL3_NewFrame();
-  ImGui_ImplGlfw_NewFrame();
-  ImGui::NewFrame();
+  {
+    auto p = scoped_prof("imgui-init");
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+  }
 
   // window size
   int width = Gfx::g_global_settings.lbox_w;
@@ -388,17 +409,25 @@ static void gl_render_display(GfxDisplay* display) {
 
   // render game!
   if (g_gfx_data->debug_gui.should_advance_frame()) {
+    auto p = scoped_prof("game-render");
     render_game_frame(width, height, lbox_w, lbox_h);
   }
 
   if (g_gfx_data->debug_gui.should_gl_finish()) {
+    auto p = scoped_prof("gl-finish");
     glFinish();
   }
 
-  // render imgui
-  g_gfx_data->debug_gui.draw(g_gfx_data->dma_copier.get_last_result().stats);
-  ImGui::Render();
-  ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+  // render debug
+  {
+    auto p = scoped_prof("debug-gui");
+    g_gfx_data->debug_gui.draw(g_gfx_data->dma_copier.get_last_result().stats);
+  }
+  {
+    auto p = scoped_prof("imgui-render");
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+  }
 
   // switch vsync modes, if requested
   bool req_vsync = g_gfx_data->debug_gui.get_vsync_flag();
@@ -409,13 +438,19 @@ static void gl_render_display(GfxDisplay* display) {
 
   // actual vsync
   g_gfx_data->debug_gui.finish_frame();
-  glfwSwapBuffers(window);
+  {
+    auto p = scoped_prof("swap-buffers");
+    glfwSwapBuffers(window);
+  }
   if (g_gfx_data->debug_gui.framelimiter) {
+    auto p = scoped_prof("frame-limiter");
     g_gfx_data->frame_limiter.run(
         g_gfx_data->debug_gui.target_fps, g_gfx_data->debug_gui.experimental_accurate_lag,
         g_gfx_data->debug_gui.sleep_in_frame_limiter, g_gfx_data->last_engine_time);
   }
   g_gfx_data->debug_gui.start_frame();
+  prof().instant_event("ROOT");
+  update_global_profiler();
 
   if (display->fullscreen_pending()) {
     display->fullscreen_flush();
@@ -428,10 +463,16 @@ static void gl_render_display(GfxDisplay* display) {
     g_gfx_data->sync_cv.notify_all();
   }
 
+  // reboot whole game, if requested
+  if (g_gfx_data->debug_gui.want_reboot_in_debug) {
+    g_gfx_data->debug_gui.want_reboot_in_debug = false;
+    MasterExit = RuntimeExitStatus::RESTART_IN_DEBUG;
+  }
+
   // exit if display window was closed
   if (glfwWindowShouldClose(window)) {
     std::unique_lock<std::mutex> lock(g_gfx_data->sync_mutex);
-    MasterExit = 2;
+    MasterExit = RuntimeExitStatus::EXIT;
     g_gfx_data->sync_cv.notify_all();
   }
 }
@@ -446,7 +487,9 @@ u32 gl_vsync() {
   }
   std::unique_lock<std::mutex> lock(g_gfx_data->sync_mutex);
   auto init_frame = g_gfx_data->frame_idx_of_input_data;
-  g_gfx_data->sync_cv.wait(lock, [=] { return MasterExit || g_gfx_data->frame_idx > init_frame; });
+  g_gfx_data->sync_cv.wait(lock, [=] {
+    return (MasterExit != RuntimeExitStatus::RUNNING) || g_gfx_data->frame_idx > init_frame;
+  });
   return g_gfx_data->frame_idx & 1;
 }
 

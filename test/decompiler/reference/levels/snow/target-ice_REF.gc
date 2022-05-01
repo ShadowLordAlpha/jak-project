@@ -223,9 +223,7 @@
                )
              )
            (until (ja-done? 0)
-             (set! (-> self control unknown-float81)
-                   (seek (-> self control unknown-float81) 0.0 (-> *display* seconds-per-frame))
-                   )
+             (seek! (-> self control unknown-float81) 0.0 (-> *display* seconds-per-frame))
              (suspend)
              (let ((a0-49 (-> self skel root-channel 0)))
                (set! (-> a0-49 param 0) (the float (+ (-> a0-49 frame-group data 0 length) -1)))
@@ -310,7 +308,7 @@
     (none)
     )
   :post
-  (the-as (function none :behavior target) target-post)
+  target-post
   )
 
 ;; failed to figure out what this is:
@@ -534,5 +532,5 @@
     (none)
     )
   :post
-  (the-as (function none :behavior target) target-post)
+  target-post
   )

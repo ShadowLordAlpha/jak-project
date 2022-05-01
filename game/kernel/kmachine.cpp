@@ -40,6 +40,7 @@
 #include "game/sce/libscf.h"
 #include "common/util/Assert.h"
 #include "game/discord.h"
+#include "common/global_profiler/GlobalProfiler.h"
 
 #include "svnrev.h"
 
@@ -66,7 +67,7 @@ Timer ee_clock_timer;
 u32 vif1_interrupt_handler = 0;
 
 void kmachine_init_globals() {
-  isodrv = iso_cd;
+  isodrv = fakeiso;  // changed. fakeiso is the only one that works in opengoal.
   modsrc = 1;
   reboot = 1;
   memset(pad_dma_buf, 0, sizeof(pad_dma_buf));
@@ -87,6 +88,8 @@ void InitParms(int argc, const char* const* argv) {
     isodrv = fakeiso;
     modsrc = 0;
     reboot = 0;
+    DebugSegment = 0;
+    MasterDebug = 0;
   }
 
   for (int i = 1; i < argc; i++) {
@@ -366,9 +369,10 @@ int InitMachine() {
   //    MsgErr("dkernel: !init pad\n");
   //  }
 
-  if (MasterDebug) {  // connect to GOAL compiler
-    InitGoalProto();
-  }
+  // do this always
+  // if (MasterDebug) {  // connect to GOAL compiler
+  InitGoalProto();
+  //}
 
   lg::info("InitSound");
   InitSound();  // do nothing!
@@ -866,6 +870,10 @@ void mkdir_path(u32 filepath) {
   file_util::create_dir_if_needed_for_file(filepath_str);
 }
 
+void prof_event(u32 name, u32 kind) {
+  prof().event(Ptr<String>(name).c()->data(), (ProfNode::Kind)kind);
+}
+
 u32 get_fullscreen() {
   switch (Gfx::get_fullscreen()) {
     default:
@@ -888,8 +896,29 @@ void set_fullscreen(u32 symptr, s64 screen) {
   }
 }
 
+void set_collision(u32 symptr) {
+  Gfx::g_global_settings.collision_enable = symptr != s7.offset;
+}
+
+void set_collision_wireframe(u32 symptr) {
+  Gfx::g_global_settings.collision_wireframe = symptr != s7.offset;
+}
+
+void set_collision_mask(GfxGlobalSettings::CollisionRendererMode mode, int mask, u32 symptr) {
+  if (symptr != s7.offset) {
+    Gfx::CollisionRendererSetMask(mode, mask);
+  } else {
+    Gfx::CollisionRendererClearMask(mode, mask);
+  }
+}
+
+u32 get_collision_mask(GfxGlobalSettings::CollisionRendererMode mode, int mask) {
+  return Gfx::CollisionRendererGetMask(mode, mask) ? s7.offset + FIX_SYM_TRUE : s7.offset;
+}
+
 void InitMachine_PCPort() {
   // PC Port added functions
+
   make_function_symbol_from_c("__read-ee-timer", (void*)read_ee_timer);
   make_function_symbol_from_c("__mem-move", (void*)c_memmove);
   make_function_symbol_from_c("__send-gfx-dma-chain", (void*)send_gfx_dma_chain);
@@ -914,9 +943,16 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("pc-get-fullscreen", (void*)get_fullscreen);
   make_function_symbol_from_c("pc-get-screen-size", (void*)get_screen_size);
   make_function_symbol_from_c("pc-set-window-size", (void*)Gfx::set_window_size);
-  make_function_symbol_from_c("pc-set-letterbox", (void*)Gfx::set_letterbox);
   make_function_symbol_from_c("pc-set-fullscreen", (void*)set_fullscreen);
+
+  // graphics things
+  make_function_symbol_from_c("pc-set-letterbox", (void*)Gfx::set_letterbox);
   make_function_symbol_from_c("pc-renderer-tree-set-lod", (void*)Gfx::SetLod);
+  make_function_symbol_from_c("pc-set-collision-mode", (void*)Gfx::CollisionRendererSetMode);
+  make_function_symbol_from_c("pc-set-collision-mask", (void*)set_collision_mask);
+  make_function_symbol_from_c("pc-get-collision-mask", (void*)get_collision_mask);
+  make_function_symbol_from_c("pc-set-collision-wireframe", (void*)set_collision_wireframe);
+  make_function_symbol_from_c("pc-set-collision", (void*)set_collision);
 
   // file related functions
   make_function_symbol_from_c("pc-filepath-exists?", (void*)filepath_exists);
@@ -925,6 +961,9 @@ void InitMachine_PCPort() {
   // discord rich presence
   make_function_symbol_from_c("pc-discord-rpc-set", (void*)set_discord_rpc);
   make_function_symbol_from_c("pc-discord-rpc-update", (void*)update_discord_rpc);
+
+  // profiler
+  make_function_symbol_from_c("pc-prof", (void*)prof_event);
 
   // init ps2 VM
   if (VM::use) {
@@ -947,7 +986,7 @@ void InitMachine_PCPort() {
 
 void vif_interrupt_callback() {
   // added for the PC port for faking VIF interrupts from the graphics system.
-  if (vif1_interrupt_handler && MasterExit == 0) {
+  if (vif1_interrupt_handler && MasterExit == RuntimeExitStatus::RUNNING) {
     call_goal(Ptr<Function>(vif1_interrupt_handler), 0, 0, 0, s7.offset, g_ee_main_mem);
   }
 }

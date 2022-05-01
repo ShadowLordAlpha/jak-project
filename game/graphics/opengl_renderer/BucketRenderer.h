@@ -39,15 +39,20 @@ struct SharedRenderState {
   bool enable_merc_xgkick = true;
   bool enable_generic_xgkick = true;
   bool use_direct2 = true;
-  bool use_generic2 = true;
   math::Vector<u8, 4> fog_color;
   float fog_intensity = 1.f;
-  bool no_multidraw = false;
+  bool no_multidraw = true;
+  bool render_collision_mesh = true;
 
   void reset();
-  bool has_camera_planes = false;
+  bool has_pc_data = false;
   LevelVis occlusion_vis[2];
+
   math::Vector4f camera_planes[4];
+  math::Vector4f camera_matrix[4];
+  math::Vector4f camera_hvdf_off;
+  math::Vector4f camera_fog;
+  math::Vector4f camera_pos;
 
   EyeRenderer* eye_renderer = nullptr;
 

@@ -27,14 +27,8 @@
   :flag-assert         #x900000048
   )
 
-(define *progress-state*
-  (new 'static 'progress-global-state
-    :yes-no-choice #f
-    :which -1
-    :last-slot-saved -1
-    )
-  )
 
+(define *progress-state* (new 'static 'progress-global-state :yes-no-choice #f :which -1 :last-slot-saved -1))
 
 (defun get-game-count ((arg0 int))
   (-> *game-counts* data arg0)
@@ -345,7 +339,7 @@
   `(when (< (-> ,obj nb-of-icons) 6)
     (let ((icon-idx (-> ,obj nb-of-icons)))
      (set! (-> ,obj icons icon-idx) (new 'static 'hud-icon))
-     (let ((new-manipy (make-init-process manipy manipy-init (new 'static 'vector :w 1.0) #f ,skel #f
+     (let ((new-manipy (process-new manipy manipy-init (new 'static 'vector :w 1.0) #f ,skel #f
                         :to ,obj
                         :stack *scratch-memory-top*
                         )))
@@ -1914,30 +1908,26 @@
       (if (and (= (-> self display-state) (-> self next-display-state))
                (= (-> self display-level-index) (-> self next-level-index))
                )
-          (set! (-> self transition-offset)
-                (seekl
-                  (-> self transition-offset)
-                  0
-                  (* (the int (* (-> self transition-speed) (-> *display* time-adjust-ratio)))
-                     (if (or (-> self stat-transition) (nonzero? (-> self level-transition)))
-                         2
-                         1
-                         )
-                     )
-                  )
-                )
-          (set! (-> self transition-offset)
-                (seekl
-                  (-> self transition-offset)
-                  512
-                  (* (the int (* (-> self transition-speed) (-> *display* time-adjust-ratio)))
-                     (if (or (-> self stat-transition) (nonzero? (-> self level-transition)))
-                         2
-                         1
-                         )
-                     )
-                  )
-                )
+          (seekl!
+            (-> self transition-offset)
+            0
+            (* (the int (* (-> self transition-speed) (-> *display* time-adjust-ratio)))
+               (if (or (-> self stat-transition) (nonzero? (-> self level-transition)))
+                   2
+                   1
+                   )
+               )
+            )
+          (seekl!
+            (-> self transition-offset)
+            512
+            (* (the int (* (-> self transition-speed) (-> *display* time-adjust-ratio)))
+               (if (or (-> self stat-transition) (nonzero? (-> self level-transition)))
+                   2
+                   1
+                   )
+               )
+            )
           )
       (set-transition-progress! self (-> self transition-offset))
       (set! (-> self in-transition) (or (-> self force-transition) (nonzero? (-> self transition-offset))))
@@ -2233,16 +2223,13 @@
   :code
   (behavior ()
     (loop
-      (set! (-> self in-out-position)
-            (seekl (-> self in-out-position) 0 (the int (* 170.0 (-> *display* time-adjust-ratio))))
-            )
+      (seekl! (-> self in-out-position) 0 (the int (* 170.0 (-> *display* time-adjust-ratio))))
       (when (< (-> self in-out-position) 2867)
-        (set! (-> self transition-offset) (seekl
-                                            (-> self transition-offset)
-                                            0
-                                            (the int (* (-> self transition-speed) (-> *display* time-adjust-ratio)))
-                                            )
-              )
+        (seekl!
+          (-> self transition-offset)
+          0
+          (the int (* (-> self transition-speed) (-> *display* time-adjust-ratio)))
+          )
         (set-transition-progress! self (-> self transition-offset))
         )
       (if (zero? (-> self in-out-position))
@@ -2273,17 +2260,14 @@
   :code
   (behavior ()
     (loop
-      (set! (-> self transition-offset) (seekl
-                                          (-> self transition-offset)
-                                          512
-                                          (the int (* (-> self transition-speed) (-> *display* time-adjust-ratio)))
-                                          )
-            )
+      (seekl!
+        (-> self transition-offset)
+        512
+        (the int (* (-> self transition-speed) (-> *display* time-adjust-ratio)))
+        )
       (set-transition-progress! self (-> self transition-offset))
       (when (< 153 (-> self transition-offset))
-        (set! (-> self in-out-position)
-              (seekl (-> self in-out-position) 4096 (the int (* 170.0 (-> *display* time-adjust-ratio))))
-              )
+        (seekl! (-> self in-out-position) 4096 (the int (* 170.0 (-> *display* time-adjust-ratio))))
         (if (= (-> self in-out-position) 4096)
             (go progress-gone)
             )
@@ -2408,7 +2392,7 @@
           )
         (dma-bucket-insert-tag
           (-> *display* frames (-> *display* on-screen) frame bucket-group)
-          (bucket-id debug-draw0)
+          (bucket-id debug)
           gp-0
           (the-as (pointer dma-tag) a3-4)
           )
@@ -2430,7 +2414,7 @@
           )
         (dma-bucket-insert-tag
           (-> *display* frames (-> *display* on-screen) frame bucket-group)
-          (bucket-id debug-draw0)
+          (bucket-id debug)
           gp-1
           (the-as (pointer dma-tag) a3-6)
           )
@@ -2452,7 +2436,7 @@
           )
         (dma-bucket-insert-tag
           (-> *display* frames (-> *display* on-screen) frame bucket-group)
-          (bucket-id debug-draw0)
+          (bucket-id debug)
           gp-2
           (the-as (pointer dma-tag) a3-8)
           )
@@ -2474,7 +2458,7 @@
           )
         (dma-bucket-insert-tag
           (-> *display* frames (-> *display* on-screen) frame bucket-group)
-          (bucket-id debug-draw0)
+          (bucket-id debug)
           gp-3
           (the-as (pointer dma-tag) a3-10)
           )

@@ -9,7 +9,7 @@
 
 (define-extern target-state-hook-exit (function none :behavior target))
 (define-extern target-effect-exit (function none :behavior target))
-(define-extern target-post (function none))
+(define-extern target-post (function none :behavior target))
 (define-extern target-walk-event-handler (function process int symbol event-message-block object :behavior target))
 (define-extern target-land-effect (function none :behavior target))
 (define-extern target-dangerous-event-handler (function process int symbol event-message-block object :behavior target))
@@ -816,9 +816,7 @@
                )
              )
            (until (ja-done? 0)
-             (set! (-> self control unknown-float81)
-                   (seek (-> self control unknown-float81) (the-as float 0.0) (-> *display* seconds-per-frame))
-                   )
+             (seek! (-> self control unknown-float81) (the-as float 0.0) (-> *display* seconds-per-frame))
              (suspend)
              (let ((a0-50 (-> self skel root-channel 0)))
                (set! (-> a0-50 param 0) (the float (+ (-> a0-50 frame-group data 0 length) -1)))
@@ -1020,7 +1018,7 @@
     (none)
     )
   :post
-  (the-as (function none :behavior target) target-post)
+  target-post
   )
 
 (defstate target-walk (target)
@@ -1585,7 +1583,7 @@
     (none)
     )
   :post
-  (the-as (function none :behavior target) target-post)
+  target-post
   )
 
 (defstate target-turn-around (target)
@@ -1727,7 +1725,7 @@
     (none)
     )
   :post
-  (the-as (function none :behavior target) target-post)
+  target-post
   )
 
 (defbehavior init-var-jump target ((arg0 float) (arg1 float) (arg2 vector) (arg3 vector) (arg4 vector))
@@ -2041,7 +2039,7 @@
     (none)
     )
   :post
-  (the-as (function none :behavior target) target-post)
+  target-post
   )
 
 (defstate target-duck-walk (target)
@@ -2162,7 +2160,7 @@
     (none)
     )
   :post
-  (the-as (function none :behavior target) target-post)
+  target-post
   )
 
 (defstate target-jump (target)
@@ -2287,13 +2285,11 @@
         )
     (mod-var-jump #t #t (cpad-hold? (-> self control unknown-cpad-info00 number) x) (-> self control transv))
     (slide-down-test)
-    (set! (-> self control unknown-float122)
-          (seek
-            (-> self control unknown-float122)
-            (fmax 0.0 (fmin 1.0 (* 0.000048828126 (+ -10240.0 (-> self control unknown-float01)))))
-            (-> *display* seconds-per-frame)
-            )
-          )
+    (seek!
+      (-> self control unknown-float122)
+      (fmax 0.0 (fmin 1.0 (* 0.000048828126 (+ -10240.0 (-> self control unknown-float01)))))
+      (-> *display* seconds-per-frame)
+      )
     (none)
     )
   :code
@@ -2364,7 +2360,7 @@
     (none)
     )
   :post
-  (the-as (function none :behavior target) target-post)
+  target-post
   )
 
 (defstate target-jump-forward (target)
@@ -2422,7 +2418,7 @@
     (none)
     )
   :post
-  (the-as (function none :behavior target) target-post)
+  target-post
   )
 
 (defstate target-double-jump (target)
@@ -2484,13 +2480,11 @@
     (if (!= (-> self state-time) (-> *display* base-frame-counter))
         (mod-var-jump #t #t (cpad-hold? (-> self control unknown-cpad-info00 number) x) (-> self control transv))
         )
-    (set! (-> self control unknown-float122)
-          (seek
-            (-> self control unknown-float122)
-            (fmax 0.0 (fmin 1.0 (* 0.000048828126 (+ -10240.0 (-> self control unknown-float01)))))
-            (-> *display* seconds-per-frame)
-            )
-          )
+    (seek!
+      (-> self control unknown-float122)
+      (fmax 0.0 (fmin 1.0 (* 0.000048828126 (+ -10240.0 (-> self control unknown-float01)))))
+      (-> *display* seconds-per-frame)
+      )
     (none)
     )
   :code
@@ -2532,7 +2526,7 @@
     (none)
     )
   :post
-  (the-as (function none :behavior target) target-post)
+  target-post
   )
 
 (defstate target-high-jump (target)
@@ -2617,19 +2611,17 @@
           )
         )
     (mod-var-jump #t #t (cpad-hold? (-> self control unknown-cpad-info00 number) x) (-> self control transv))
-    (set! (-> self control unknown-float122)
-          (seek
-            (-> self control unknown-float122)
-            (fmax 0.0 (fmin 1.0 (* 0.00012207031 (+ -2048.0 (-> self control unknown-float01)))))
-            (-> *display* seconds-per-frame)
-            )
-          )
+    (seek!
+      (-> self control unknown-float122)
+      (fmax 0.0 (fmin 1.0 (* 0.00012207031 (+ -2048.0 (-> self control unknown-float01)))))
+      (-> *display* seconds-per-frame)
+      )
     (none)
     )
   :code
   (-> target-jump code)
   :post
-  (the-as (function none :behavior target) target-post)
+  target-post
   )
 
 (defstate target-duck-high-jump (target)
@@ -2696,7 +2688,7 @@
     (none)
     )
   :post
-  (the-as (function none :behavior target) target-post)
+  target-post
   )
 
 (defstate target-duck-high-jump-jump (target)
@@ -2806,7 +2798,7 @@
     (none)
     )
   :post
-  (the-as (function none :behavior target) target-post)
+  target-post
   )
 
 (defstate target-falling (target)
@@ -2837,7 +2829,7 @@
     (none)
     )
   :post
-  (the-as (function none :behavior target) target-post)
+  target-post
   )
 
 (defstate target-hit-ground (target)
@@ -2943,7 +2935,7 @@
     (none)
     )
   :post
-  (the-as (function none :behavior target) target-post)
+  target-post
   )
 
 (defstate target-attack (target)
@@ -3013,7 +3005,7 @@
     (none)
     )
   :post
-  (the-as (function none :behavior target) target-post)
+  target-post
   )
 
 (defstate target-running-attack (target)
@@ -3320,7 +3312,7 @@
     (none)
     )
   :post
-  (the-as (function none :behavior target) target-post)
+  target-post
   )
 
 (defstate target-attack-air (target)
@@ -3424,12 +3416,11 @@
       (go target-hit-ground #f)
       )
     (if (>= (- (-> *display* base-frame-counter) (-> self state-time)) (seconds 0.5))
-        (set! (-> self control dynam gravity-length) (seek
-                                                       (-> self control dynam gravity-length)
-                                                       (-> self control unknown-dynamics00 gravity-length)
-                                                       (* 245760.0 (-> *display* seconds-per-frame))
-                                                       )
-              )
+        (seek!
+          (-> self control dynam gravity-length)
+          (-> self control unknown-dynamics00 gravity-length)
+          (* 245760.0 (-> *display* seconds-per-frame))
+          )
         )
     (when (and (>= (- (-> *display* base-frame-counter) (-> self state-time)) (seconds 0.05))
                (< (vector-dot (-> self control dynam gravity-normal) (-> self control unknown-vector10))
@@ -3553,7 +3544,7 @@
     (none)
     )
   :post
-  (the-as (function none :behavior target) target-post)
+  target-post
   )
 
 (defstate target-attack-uppercut (target)
@@ -3602,7 +3593,7 @@
     (none)
     )
   :post
-  (the-as (function none :behavior target) target-post)
+  target-post
   )
 
 (defstate target-attack-uppercut-jump (target)
@@ -3713,7 +3704,7 @@
     (none)
     )
   :post
-  (the-as (function none :behavior target) target-post)
+  target-post
   )
 
 (defstate target-flop (target)
@@ -4031,7 +4022,7 @@
     (none)
     )
   :post
-  (the-as (function none :behavior target) target-post)
+  target-post
   )
 
 (defstate target-flop-hit-ground (target)
@@ -4114,7 +4105,7 @@
     (none)
     )
   :post
-  (the-as (function none :behavior target) target-post)
+  target-post
   )
 
 (defstate target-wheel (target)
@@ -4252,7 +4243,7 @@
     (none)
     )
   :post
-  (the-as (function none :behavior target) target-post)
+  target-post
   )
 
 (defstate target-wheel-flip (target)
@@ -4435,7 +4426,7 @@
     (none)
     )
   :post
-  (the-as (function none :behavior target) target-post)
+  target-post
   )
 
 

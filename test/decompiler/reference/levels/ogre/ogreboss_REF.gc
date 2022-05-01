@@ -66,8 +66,7 @@
   )
 
 ;; definition for symbol *ogreboss-missile-shadow-control*, type shadow-control
-(define
-  *ogreboss-missile-shadow-control*
+(define *ogreboss-missile-shadow-control*
   (new 'static 'shadow-control :settings (new 'static 'shadow-settings
                                            :center
                                            (new 'static 'vector :w (the-as float #xe))
@@ -82,8 +81,7 @@
   )
 
 ;; definition for symbol *ogreboss-shadow-control*, type shadow-control
-(define
-  *ogreboss-shadow-control*
+(define *ogreboss-shadow-control*
   (new 'static 'shadow-control :settings (new 'static 'shadow-settings
                                            :center
                                            (new 'static 'vector :w (the-as float #xc))
@@ -324,7 +322,7 @@
                          )
                      (add-debug-vector
                        #t
-                       (bucket-id debug-draw1)
+                       (bucket-id debug-no-zbuf)
                        s4-1
                        s3-0
                        (meters 0.00024414062)
@@ -721,9 +719,7 @@
     (joint-control-channel-group! a0-3 (the-as art-joint-anim (-> self draw art-group data 43)) num-func-seek!)
     )
   (until (ja-done? 0)
-    (set! (-> self joint blend)
-          (seek (-> self joint blend) (the-as float 0.0) (* 5.0 (-> *display* seconds-per-frame)))
-          )
+    (seek! (-> self joint blend) (the-as float 0.0) (* 5.0 (-> *display* seconds-per-frame)))
     (let* ((f1-1 (/ (- (ja-frame-num 0) (ja-aframe (the-as float 54.0) 0))
                     (- (the float (ja-num-frames 0)) (ja-aframe (the-as float 54.0) 0))
                     )
@@ -760,9 +756,7 @@
       (joint-control-channel-group! a0-3 (the-as art-joint-anim (-> self draw art-group data 42)) num-func-seek!)
       )
     (until (ja-done? 0)
-      (set! (-> self joint blend)
-            (seek (-> self joint blend) (the-as float 0.0) (* 5.0 (-> *display* seconds-per-frame)))
-            )
+      (seek! (-> self joint blend) (the-as float 0.0) (* 5.0 (-> *display* seconds-per-frame)))
       (let* ((f1-1 (/ (- (ja-frame-num 0) (ja-aframe (the-as float 32.0) 0))
                       (- (the float (ja-num-frames 0)) (ja-aframe (the-as float 32.0) 0))
                       )
@@ -1121,9 +1115,7 @@
         )
       (until (ja-done? 0)
         (if (>= (ja-frame-num 0) (ja-aframe (the-as float 235.0) 0))
-            (set! (-> self side-pos)
-                  (seek (-> self side-pos) (the-as float 0.0) (* 20480.0 (-> *display* seconds-per-frame)))
-                  )
+            (seek! (-> self side-pos) (the-as float 0.0) (* 20480.0 (-> *display* seconds-per-frame)))
             )
         (suspend)
         (let ((a0-12 (-> self skel root-channel 0)))
@@ -1299,7 +1291,7 @@
     (set! (-> self try-counted) #t)
     (let ((gp-0 (-> self entity extra perm)))
       (logior! (-> gp-0 status) (entity-perm-status user-set-from-cstage))
-      (set! (-> gp-0 user-int8 0) (seekl (-> gp-0 user-int8 0) 255 1))
+      (seekl! (-> gp-0 user-int8 0) 255 1)
       (set! (-> self try-count) (the-as uint (-> gp-0 user-int8 0)))
       )
     )
